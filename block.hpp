@@ -9,7 +9,7 @@ extern "C"
 #include "falcon\falcon.h"
 }
 
-#define LOGN 10
+#include "const.hpp"
 
 class BlockUtil
 {
@@ -43,11 +43,12 @@ public:
     static bool isRngInitiated;
 
     Block();
-    std::string hash();
-    int sign(std::vector<uint8_t> secretKey);
-    uint32_t mine();
+    virtual std::string hash();
+    virtual int sign(std::vector<uint8_t> secretKey);
+    virtual int verify();
+    virtual uint32_t mine();
 
-    std::string toString();
+    virtual std::string toString();
 };
 
 class GenesisBlock : public Block
@@ -55,10 +56,8 @@ class GenesisBlock : public Block
 public:
     GenesisBlock();
 
-    std::string hash();
-    uint32_t mine();
-
-    std::string toString();
+    std::string hash() override;
+    uint32_t mine() override;
 };
 
 #endif

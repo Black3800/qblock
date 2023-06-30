@@ -11,8 +11,6 @@
 
 #include "z85\z85.hpp"
 
-#define DIFFICULTY 4
-
 int BufferSize::logn = 0;
 size_t BufferSize::pubkey, BufferSize::privkey, BufferSize::sig, BufferSize::sigpad, BufferSize::sigct, BufferSize::expkey;
 size_t BufferSize::tmp_keygen, BufferSize::tmp_makepub, BufferSize::tmp_signdyn, BufferSize::tmp_signtree, BufferSize::tmp_verify, BufferSize::tmp_expandpriv;
@@ -22,10 +20,6 @@ bool Block::isRngInitiated = false;
 
 std::string BlockUtil::b85encode_vector(std::vector<uint8_t> v)
 {
-    // while (v.size() % 4 != 0)
-    // {
-    //     v.push_back(0);
-    // }
     return z85::encode_with_padding((char *)&v.front(), v.size());
 }
 
@@ -38,19 +32,19 @@ std::vector<uint8_t> BlockUtil::b85decode_vector(std::string s)
 
 void BufferSize::setLogn(int logn)
 {
-    pubkey = FALCON_PUBKEY_SIZE(LOGN);
-    privkey = FALCON_PRIVKEY_SIZE(LOGN);
-    sig = FALCON_SIG_COMPRESSED_MAXSIZE(LOGN);
-    sigpad = FALCON_SIG_PADDED_SIZE(LOGN);
-    sigct = FALCON_SIG_CT_SIZE(LOGN);
-    expkey = FALCON_EXPANDEDKEY_SIZE(LOGN);
+    pubkey = FALCON_PUBKEY_SIZE(QBLOCK_LOGN);
+    privkey = FALCON_PRIVKEY_SIZE(QBLOCK_LOGN);
+    sig = FALCON_SIG_COMPRESSED_MAXSIZE(QBLOCK_LOGN);
+    sigpad = FALCON_SIG_PADDED_SIZE(QBLOCK_LOGN);
+    sigct = FALCON_SIG_CT_SIZE(QBLOCK_LOGN);
+    expkey = FALCON_EXPANDEDKEY_SIZE(QBLOCK_LOGN);
 
-    tmp_keygen = FALCON_TMPSIZE_KEYGEN(LOGN);
-    tmp_makepub = FALCON_TMPSIZE_MAKEPUB(LOGN);
-    tmp_signdyn = FALCON_TMPSIZE_SIGNDYN(LOGN);
-    tmp_signtree = FALCON_TMPSIZE_SIGNTREE(LOGN);
-    tmp_verify = FALCON_TMPSIZE_VERIFY(LOGN);
-    tmp_expandpriv = FALCON_TMPSIZE_EXPANDPRIV(LOGN);
+    tmp_keygen = FALCON_TMPSIZE_KEYGEN(QBLOCK_LOGN);
+    tmp_makepub = FALCON_TMPSIZE_MAKEPUB(QBLOCK_LOGN);
+    tmp_signdyn = FALCON_TMPSIZE_SIGNDYN(QBLOCK_LOGN);
+    tmp_signtree = FALCON_TMPSIZE_SIGNTREE(QBLOCK_LOGN);
+    tmp_verify = FALCON_TMPSIZE_VERIFY(QBLOCK_LOGN);
+    tmp_expandpriv = FALCON_TMPSIZE_EXPANDPRIV(QBLOCK_LOGN);
 }
 
 Block::Block()
@@ -66,7 +60,7 @@ Block::Block()
     }
     if (BufferSize::logn == 0)
     {
-        BufferSize::setLogn(LOGN);
+        BufferSize::setLogn(QBLOCK_LOGN);
     }
 }
 
@@ -86,21 +80,19 @@ std::string Block::hash()
     hash.Final((CryptoPP::byte*) &digest[0]);
 
     std::string encoded = "";
-    CryptoPP::StringSource ss((CryptoPP::byte*) &digest[0], sizeof(digest), true,
-                              new CryptoPP::HexEncoder(
-                                  new CryptoPP::StringSink(encoded),
-                                  false, // uppercase
-                                  64,    // grouping
-                                  ""     // separator
-                                  )      // HexDecoder
-    );
+    CryptoPP::HexEncoder* encoder = new CryptoPP::HexEncoder(
+        new CryptoPP::StringSink(encoded),
+        false, // uppercase
+        64,    // grouping
+        ""     // separator
+    );         // HexEncoder
+    CryptoPP::StringSource ss((CryptoPP::byte*) &digest[0], sizeof(digest), true, encoder);
     return encoded;
 }
 
 int Block::sign(std::vector<uint8_t> privateKey)
 {
     size_t sig_len = BufferSize::sig;
-    size_t privkey_len = BufferSize::privkey;
     size_t tmp_len = BufferSize::tmp_signdyn;
 
     signature.resize(sig_len);
@@ -114,23 +106,46 @@ int Block::sign(std::vector<uint8_t> privateKey)
                             &sig_len,
                             FALCON_SIG_COMPRESSED,
                             &privateKey.front(),
-                            privkey_len,
+                            privateKey.size(),
                             data.data(),
                             data.length(),
                             &tmp.front(),
                             tmp_len);
-    
+
+    signature.resize(sig_len);
+
+    return r;
+}
+
+int Block::verify()
+{
+    if (signature.empty() || publicKey.empty()) return -1;
+
+    size_t tmp_len = BufferSize::tmp_signdyn;
+    std::string data = previousHash + message;
+    std::vector<uint8_t> tmp(tmp_len);
+
+    int r = falcon_verify(&signature.front(),
+                          signature.size(),
+                          FALCON_SIG_COMPRESSED,
+                          &publicKey.front(),
+                          publicKey.size(),
+                          data.data(),
+                          data.length(),
+                          &tmp.front(),
+                          tmp_len);
+
     return r;
 }
 
 uint32_t Block::mine()
 {
     std::string prefix = "xxx";
-    std::string target = std::string(DIFFICULTY, '0');
+    std::string target = std::string(QBLOCK_DIFFICULTY, '0');
     while (prefix != target)
     {
         proof++;
-        prefix = hash().substr(0, DIFFICULTY);
+        prefix = hash().substr(0, QBLOCK_DIFFICULTY);
         // std::cout << "\r\033[95m[\033[4m\x1b[1;32;40mMining block...\x1b[0m difficulty=" << 5 << "\033[95m]\033[0m\t";
         // std::cout << proof << "\t\t" << hash();
     }
@@ -145,6 +160,7 @@ std::string Block::toString()
     stringRepresentation += std::format("\033[92mhash\033[0m:\t\t{}\n", hash());
     stringRepresentation += std::format("\033[92mpreviousHash\033[0m:\t{}\n", previousHash);
     stringRepresentation += std::format("\033[92mnonce\033[0m:\t\t{}\n", proof);
+    
     if (publicKey.empty())
     {
         stringRepresentation += "\033[92mpublicKey\033[0m:\tN/A\n";
@@ -152,6 +168,24 @@ std::string Block::toString()
     else
     {
         stringRepresentation += std::format("\033[92mpublicKey\033[0m:\t{}\n", BlockUtil::b85encode_vector(publicKey));
+    }
+
+    if (signature.empty())
+    {
+        stringRepresentation += "\033[92msignature\033[0m:\tN/A\n";
+    }
+    else
+    {
+        stringRepresentation += std::format("\033[92msignature\033[0m:\t{}\n", BlockUtil::b85encode_vector(signature));
+    }
+
+    if (verify() != 0)
+    {
+        stringRepresentation += "\033[92mverification\033[0m:\t\tfailed\n";
+    }
+    else
+    {
+        stringRepresentation += "\033[92mverification\033[0m:\t\tsuccess\n";
     }
 
     // if (publicKey.size() == 0)
@@ -185,6 +219,8 @@ GenesisBlock::GenesisBlock() : Block::Block()
     previousTimestamp = 0;
     timestamp = 0;
     proof = 0;
+    publicKey = BlockUtil::b85decode_vector(QBLOCK_GENESIS_PUBKEY);
+    signature = BlockUtil::b85decode_vector(QBLOCK_GENESIS_SIG);
 }
 
 std::string GenesisBlock::hash()
@@ -195,14 +231,4 @@ std::string GenesisBlock::hash()
 uint32_t GenesisBlock::mine()
 {
     return 0;
-}
-
-std::string GenesisBlock::toString()
-{
-    std::string stringRepresentation = "";
-    stringRepresentation += std::format("\033[92mMessage\033[0m:\t{}\n", message);
-    stringRepresentation += std::format("\033[92mhash\033[0m:\t\t{}\n", hash());
-    stringRepresentation += "\033[92mpreviousHash\033[0m:\tN/A\n";
-    stringRepresentation += std::format("\033[92mnonce\033[0m:\t\t{}\n", proof);
-    return stringRepresentation;
 }
