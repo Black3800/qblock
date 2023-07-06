@@ -149,7 +149,7 @@ uint32_t Block::mine()
         // std::cout << "\r\033[95m[\033[4m\x1b[1;32;40mMining block...\x1b[0m difficulty=" << 5 << "\033[95m]\033[0m\t";
         // std::cout << proof << "\t\t" << hash();
     }
-    // std::cout << proof << "\t" << hash();
+    // std::cout << proof << "\t" << hash() <<std::endl;
     return proof;
 }
 
@@ -187,28 +187,7 @@ std::string Block::toString()
     {
         stringRepresentation += "\033[92mverification\033[0m:\t\tsuccess\n";
     }
-
-    // if (publicKey.size() == 0)
-    // {
-    //     stringRepresentation += "\033[92mpublicKey\033[0m: n/a\n";
-    // }
-    // else
-    // {
-    //     // stringRepresentation += std::format("\033[92mpublicKey\033[0m: {}\n", std::string(publicKey.begin(), publicKey.end()));
-    //     stringRepresentation += "\033[92mpublicKey\033[0m: ";
-    //     stringRepresentation += publicKey;
-    // }
-
-    // if (signature.size() == 0)
-    // {
-    //     stringRepresentation += "\033[92msignature\033[0m: n/a\n";
-    // }
-    // else
-    // {
-    //     // stringRepresentation += std::format("\033[92msignature\033[0m: {}\n", std::string(signature.begin(), signature.end()));
-    //     stringRepresentation += "\033[92msignature\033[0m: ";
-    //     stringRepresentation += signature;
-    // }
+    
     return stringRepresentation;
 }
 
