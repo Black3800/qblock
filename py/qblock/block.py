@@ -75,7 +75,7 @@ class GenesisBlock(Block):
         rep += f"\033[92msignature\033[0m: {self.signature}\n"
         return rep
 
-    def verify():
+    def verify(self):
         return True
 
     def hash(self, _nonce=-1):
