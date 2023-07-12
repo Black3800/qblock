@@ -3,12 +3,15 @@ from base64 import b85encode, b85decode
 from falcon import falcon
 from Crypto.Hash import SHAKE256
 from qblock.block_util import encode_pubkey, decode_pubkey
-from qblock.const import QBLOCK_GENESIS_PUBKEY, QBLOCK_GENESIS_SIGNATURE
+from qblock.const import QBLOCK_GENESIS_HASH, QBLOCK_GENESIS_MESSAGE, QBLOCK_GENESIS_MESSAGE_HASH, QBLOCK_GENESIS_PREVIOUS_HASH, QBLOCK_GENESIS_PREVIOUS_TIMESTAMP, QBLOCK_GENESIS_PROOF, QBLOCK_GENESIS_PUBLIC_KEY, QBLOCK_GENESIS_SIGNATURE, QBLOCK_GENESIS_TIMESTAMP
 
 class Block:
 
     def __init__(self, msg, prevBlock):
         self.message = msg
+        shake = SHAKE256.new()
+        shake.update(msg)
+        self.messageHash = shake.read(32).hex().encode("utf-8")
         self.previousHash = prevBlock.hash().encode("utf-8")
         self.previousTimestamp = prevBlock.timestamp
         self.publicKey = ""
@@ -31,10 +34,10 @@ class Block:
 
     def sign(self, secretKey):
         self.publicKey = falcon.PublicKey(secretKey)
-        self.signature = secretKey.sign(self.previousHash + self.message)
+        self.signature = secretKey.sign(self.previousHash + self.messageHash)
 
     def verify(self):
-        return self.publicKey.verify(self.previousHash + self.message, self.signature)
+        return self.publicKey.verify(self.previousHash + self.messageHash, self.signature)
 
     def hash(self, nonce=-1):
         if nonce == -1:
@@ -60,23 +63,17 @@ class Block:
 class GenesisBlock(Block):
 
     def __init__(self):
-        self.message = b'"Not only is the Universe stranger than we think, it is stranger than we can think." - Werner Heisenberg, Across the Frontiers'
-        self.previousHash = b""
-        self.previousTimestamp = 0
-        self.publicKey = QBLOCK_GENESIS_PUBKEY
+        self.message = QBLOCK_GENESIS_MESSAGE
+        self.messageHash = QBLOCK_GENESIS_MESSAGE_HASH
+        self.previousHash = QBLOCK_GENESIS_PREVIOUS_HASH
+        self.previousTimestamp = QBLOCK_GENESIS_PREVIOUS_TIMESTAMP
+        self.publicKey = QBLOCK_GENESIS_PUBLIC_KEY
         self.signature = QBLOCK_GENESIS_SIGNATURE
-        self.timestamp = 0.0
-        self.proof = -1
-
-    def __repr__(self):
-        rep = f"\033[92mMessage\033[0m: {self.message}\n"
-        rep += f"\033[92mpreviousHash\033[0m: {self.previousHash}\n"
-        rep += f"\033[92mpublicKey\033[0m: {self.publicKey}\n"
-        rep += f"\033[92msignature\033[0m: {self.signature}\n"
-        return rep
+        self.timestamp = QBLOCK_GENESIS_TIMESTAMP
+        self.proof = QBLOCK_GENESIS_PROOF
 
     def verify(self):
         return True
 
     def hash(self, _nonce=-1):
-        return "1122333344444444555555555555555566666666666666666666666666666666"
+        return QBLOCK_GENESIS_HASH
