@@ -1,0 +1,52 @@
+# Use root/example as user/password credentials
+version: '3.1'
+name: qblock
+
+services:
+
+  mongodb:
+    image: mongo
+    container_name: mongodb
+    hostname: mongodb
+    restart: always
+    ports:
+      - 27017:27017
+    networks:
+      - mongo-network
+    entrypoint: ["/usr/bin/mongod","--bind_ip_all","--replSet","rs0"]
+
+  mongosetup:
+    image: mongo
+    container_name: mongosetup
+    networks:
+      - mongo-network
+    depends_on:
+      - mongodb
+    restart: "no"
+    entrypoint: ["bash", "-c", "sleep 30 && mongosh --host mongodb:27017 --eval 'rs.initiate()'"]      
+
+  core:
+    build: ./core
+    container_name: core
+    networks:
+      - mongo-network
+    depends_on:
+      - mongosetup
+    environment:
+      WAIT_HOSTS: mongodb:27017
+
+  client:
+    build: ./client
+    container_name: client
+    networks:
+      - mongo-network
+    depends_on:
+      - mongosetup
+    ports:
+      - "23714:23714"
+    environment:
+      WAIT_HOSTS: mongodb:27017
+
+networks:
+  mongo-network:
+    driver: bridge

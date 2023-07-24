@@ -2,22 +2,29 @@ import time
 from base64 import b85encode, b85decode
 from falcon import falcon
 from Crypto.Hash import SHAKE256
-from qblock.block_util import encode_pubkey, decode_pubkey
+from qblock.block_util import encode_pubkey, decode_pubkey, encode_signature, decode_signature
 from qblock.const import QBLOCK_GENESIS_HASH, QBLOCK_GENESIS_MESSAGE, QBLOCK_GENESIS_MESSAGE_HASH, QBLOCK_GENESIS_PREVIOUS_HASH, QBLOCK_GENESIS_PREVIOUS_TIMESTAMP, QBLOCK_GENESIS_PROOF, QBLOCK_GENESIS_PUBLIC_KEY, QBLOCK_GENESIS_SIGNATURE, QBLOCK_GENESIS_TIMESTAMP
 
 class Block:
 
-    def __init__(self, msg, prevBlock):
+    def __init__(self, msg, *, prevBlock=None, prevHash=None, prevTimestamp=None):
         self.message = msg
         shake = SHAKE256.new()
         shake.update(msg)
         self.messageHash = shake.read(32).hex().encode("utf-8")
-        self.previousHash = prevBlock.hash().encode("utf-8")
-        self.previousTimestamp = prevBlock.timestamp
+        self.selfHash = None
+        if prevBlock != None:
+            self.previousHash = prevBlock.hash().encode("utf-8")
+            self.previousTimestamp = prevBlock.timestamp
+        if prevHash != None:
+            self.previousHash = prevHash
+        if prevTimestamp != None:
+            self.previousTimestamp = prevTimestamp
         self.publicKey = ""
         self.signature = ""
         self.timestamp = 0.0
         self.proof = -1
+        self.hash()
 
     def __repr__(self):
         rep = f"\033[92mMessage\033[0m: {self.message}\n"
@@ -34,17 +41,19 @@ class Block:
 
     def sign(self, secretKey):
         self.publicKey = falcon.PublicKey(secretKey)
-        self.signature = secretKey.sign(self.previousHash + self.messageHash)
+        self.signature = encode_signature(secretKey.sign(self.previousHash + self.messageHash))
 
     def verify(self):
-        return self.publicKey.verify(self.previousHash + self.messageHash, self.signature)
+        return self.publicKey.verify(self.previousHash + self.messageHash, decode_signature(self.signature))
 
-    def hash(self, nonce=-1):
-        if nonce == -1:
-            nonce = self.proof
-        shake = SHAKE256.new()
-        shake.update(self.previousHash + str(self.previousTimestamp).encode("utf-8") + self.message + str(nonce).encode("utf-8"))
-        return shake.read(32).hex()
+    def hash(self, nonce=-1, usePreviousHash=False):
+        if not usePreviousHash:
+            if nonce == -1:
+                nonce = self.proof
+            shake = SHAKE256.new()
+            shake.update(self.previousHash + str(self.previousTimestamp).encode("utf-8") + self.message + str(nonce).encode("utf-8"))
+            self.selfHash = shake.read(32).hex()
+        return self.selfHash
 
     def mine(self, difficulty=1, verbose=False):
         nonce = -1
@@ -75,5 +84,5 @@ class GenesisBlock(Block):
     def verify(self):
         return True
 
-    def hash(self, _nonce=-1):
+    def hash(self, _nonce=-1, usePreviousHash=True):
         return QBLOCK_GENESIS_HASH

@@ -44,3 +44,9 @@ def encode_pubkey(pk):
 
 def decode_pubkey(pkbytes):
     return decode_vector(pkbytes, bits=14)
+
+def encode_signature(sigbytes):
+    return b85encode(sigbytes)
+
+def decode_signature(sigbytes):
+    return b85decode(sigbytes)
