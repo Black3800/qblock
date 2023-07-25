@@ -29,7 +29,7 @@ class Chain:
             print("blocks empty")
             return False
 
-        if self.blocks[-1].hash().encode("utf-8") != newBlock.previousHash:
+        if self.blocks[-1].hash() != newBlock.previousHash:
             print("hash incorrect")
             return False
 
@@ -37,7 +37,7 @@ class Chain:
             print("signature invalid")
             return False
 
-        if newBlock.hash()[:QBLOCK_DIFFICULTY] != "0"*QBLOCK_DIFFICULTY:
+        if newBlock.hash()[:QBLOCK_DIFFICULTY] != b"0"*QBLOCK_DIFFICULTY:
             print("block not mined")
             return False
 

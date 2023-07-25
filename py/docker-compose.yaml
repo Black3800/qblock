@@ -10,23 +10,26 @@ services:
     hostname: mongodb
     restart: always
     ports:
-      - 27017:27017
+      - "27017:27017"
     networks:
       - mongo-network
     entrypoint: ["/usr/bin/mongod","--bind_ip_all","--replSet","rs0"]
 
   mongosetup:
-    image: mongo
+    build: ./mongosetup
     container_name: mongosetup
     networks:
       - mongo-network
     depends_on:
       - mongodb
-    restart: "no"
-    entrypoint: ["bash", "-c", "sleep 30 && mongosh --host mongodb:27017 --eval 'rs.initiate()'"]      
+    restart: on-failure
+    environment:
+      WAIT_HOSTS: mongodb:27017
 
   core:
-    build: ./core
+    build:
+      context: ./
+      dockerfile: ./core/Dockerfile
     container_name: core
     networks:
       - mongo-network
@@ -43,7 +46,19 @@ services:
     depends_on:
       - mongosetup
     ports:
-      - "23714:23714"
+      - "23614:23614"
+    environment:
+      WAIT_HOSTS: mongodb:27017
+
+  miner:
+    build:
+      context: ./
+      dockerfile: ./miner/Dockerfile
+    container_name: miner
+    networks:
+      - mongo-network
+    depends_on:
+      - mongosetup
     environment:
       WAIT_HOSTS: mongodb:27017
 

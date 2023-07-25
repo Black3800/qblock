@@ -12,20 +12,35 @@ from qblock.const import *
 
 from flask import Flask, request
 
-def create_block(msg, prevHash, prevTimestamp, sig, pk):
-    print(f"\033[95m[\033[4m\x1b[1;32;40mCreating new block...\x1b[0m\033[95m]\033[0m")
-    b = Block(msg, prevHash=prevHash, prevTimestamp=prevTimestamp)
-    pkh = decode_pubkey(pk)
-    b.publicKey = falcon.PublicKey(h=pkh, n=QBLOCK_N)
-    b.signature = sig
-    print("\033[95m[\033[0mDone\033[95m]\033[0m\n")
-    # print("\033[95m[Block detail]\033[0m\n\n")
-    # print(b1)
-    proof = b.mine(QBLOCK_DIFFICULTY, verbose=True)
-    print("\n\n\033[93mNonce found!! 🎉\033[0m")
-    print(proof, "\t", b.hash(), "\n")
-    return b
-
+def initialize_qblock_db(mongo_instance):
+    print(f"\033[95m[\033[4m\x1b[1;32;40m{ 'Initializing database...' }\x1b[0m\033[95m]\033[0m")
+    qblock = mongo_instance.qblock
+    if qblock.meta.count_documents({}) > 0:
+        print(f"\033[95m[\033[0m{ 'Database already initialized' }\033[95m]\033[0m\n")
+    else:
+        genesis = {
+            "_id": QBLOCK_GENESIS_HASH,
+            "height": 0,
+            "message": QBLOCK_GENESIS_MESSAGE,
+            "message_hash": QBLOCK_GENESIS_MESSAGE_HASH,
+            "previous_hash": QBLOCK_GENESIS_PREVIOUS_HASH,
+            "previous_timestamp": QBLOCK_GENESIS_PREVIOUS_TIMESTAMP,
+            "proof": QBLOCK_GENESIS_PROOF,
+            "public_key": QBLOCK_GENESIS_PUBLIC_KEY,
+            "signature": QBLOCK_GENESIS_SIGNATURE,
+            "timestamp": QBLOCK_GENESIS_TIMESTAMP
+        }
+        initial_meta = {
+            "_id": 0,
+            "height": 0,
+            "hot_size": 1,
+            "cold_size": 0,
+            "latest_hash": QBLOCK_GENESIS_HASH,
+            "latest_timestamp": QBLOCK_GENESIS_TIMESTAMP
+        }
+        qblock.meta.insert_one(initial_meta)
+        qblock.hot.insert_one(genesis)
+        print(f"\033[95m[\033[0m{ 'Done' }\033[95m]\033[0m\n")
 
 # print(f"\033[95m[\033[4m\x1b[1;32;40mMining genesis block...\x1b[0m\033[95m]\033[0m")
 # chain = Chain()
@@ -73,29 +88,33 @@ def main():
     sk = falcon.SecretKey(QBLOCK_N, polys=decode_secretkey(skb))
     pk = falcon.PublicKey(sk)
     print("\033[95m[\033[0mDone\033[95m]\033[0m\n")
-    mongoclient = pymongo.MongoClient('mongodb://mongodb:27017/?directConnection=true')
-    mongodown = True
-    while mongodown:
+    mongo_client = pymongo.MongoClient('mongodb://mongodb:27017/?directConnection=true')
+    mongo_down = True
+    while mongo_down:
         try:
-            mongoclient.admin.command('ping')
-            mongodown = False
+            mongo_client.admin.command('ping')
+            mongo_down = False
         except ConnectionFailure:
             continue
     
-    db = mongoclient['qblock']
-
     stream_wait_time = 1
-    stream_max_retry = 10
+    stream_max_retry = 30
     for i in range(0, stream_max_retry):
         try:
-            with db.watch() as stream:
+            initialize_qblock_db(mongo_client)
+            qblock = mongo_client.qblock
+            with qblock.watch() as stream:
                 print("watching db")
                 for change in stream:
-                    bid = db["hot"].insert_one(change["fullDocument"]).inserted_id
+                    print(change)
+                    # newBlock = change["fullDocument"]
+                    # del newBlock["_id"]
+                    # bid = db["hot"].insert_one(newBlock).inserted_id
         except NotPrimaryError:
-            print("not primary error")
+            print(f"NotPrimaryError: backoff for {stream_wait_time} seconds")
             sleep(stream_wait_time)
-            stream_wait_time *= 2
+            if stream_wait_time < 90:
+                stream_wait_time *= 1.56828
 
     print("\n\033[95m[Exit]\033[0m\n")
 

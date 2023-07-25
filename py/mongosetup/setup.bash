@@ -1,0 +1,1 @@
+mongosh --host mongodb:27017 --eval 'rs.initiate()'

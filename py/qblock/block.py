@@ -7,14 +7,18 @@ from qblock.const import QBLOCK_GENESIS_HASH, QBLOCK_GENESIS_MESSAGE, QBLOCK_GEN
 
 class Block:
 
-    def __init__(self, msg, *, prevBlock=None, prevHash=None, prevTimestamp=None):
+    def __init__(self, msg, *, prevBlock=None, prevHash=None, prevTimestamp=None, height=None):
         self.message = msg
         shake = SHAKE256.new()
         shake.update(msg)
         self.messageHash = shake.read(32).hex().encode("utf-8")
         self.selfHash = None
+        if height != None:
+            self.height = height
+        else:
+            self.height = 1
         if prevBlock != None:
-            self.previousHash = prevBlock.hash().encode("utf-8")
+            self.previousHash = prevBlock.hash()
             self.previousTimestamp = prevBlock.timestamp
         if prevHash != None:
             self.previousHash = prevHash
@@ -52,14 +56,14 @@ class Block:
                 nonce = self.proof
             shake = SHAKE256.new()
             shake.update(self.previousHash + str(self.previousTimestamp).encode("utf-8") + self.message + str(nonce).encode("utf-8"))
-            self.selfHash = shake.read(32).hex()
+            self.selfHash = shake.read(32).hex().encode("utf-8")
         return self.selfHash
 
     def mine(self, difficulty=1, verbose=False):
         nonce = -1
-        currentHash = "ff"
+        currentHash = b"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 
-        while currentHash[:difficulty] != "0"*difficulty:
+        while currentHash[:difficulty] != b"0"*difficulty:
             if verbose:
                 print(f"\033[95m[\033[4m\x1b[1;32;40mMining block...\x1b[0m difficulty={difficulty}\033[95m]\033[0m", end="\t")
                 print(nonce, "\t\t", currentHash, end="\r")
@@ -72,6 +76,7 @@ class Block:
 class GenesisBlock(Block):
 
     def __init__(self):
+        self.height = 1
         self.message = QBLOCK_GENESIS_MESSAGE
         self.messageHash = QBLOCK_GENESIS_MESSAGE_HASH
         self.previousHash = QBLOCK_GENESIS_PREVIOUS_HASH
