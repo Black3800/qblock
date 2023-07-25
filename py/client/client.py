@@ -21,6 +21,7 @@ def create_app(test_config=None):
     
     qblock = mongo_client.qblock
     cold = qblock.cold
+    warm = qblock.warm
     meta = qblock.meta
 
     if test_config is None:
@@ -39,23 +40,20 @@ def create_app(test_config=None):
     def get_block_all():
         return "all blocks"
 
-    @app.post('/block/<string:block_hash>')
-    def post_block(block_hash=None):
+    @app.post('/cold')
+    def post_cold():
         data = request.json
         message = data.get('message').encode('utf-8')
         signature = data.get('signature').encode('utf-8')
         publicKey = data.get('publicKey').encode('utf-8')
         submitted_time = time.time()
         meta_block = meta.find().sort("height", pymongo.DESCENDING).limit(1)[0]
-        cold_size = meta_block["cold_size"]
         block = {
             "message": message,
             "signature": signature,
             "public_key": publicKey,
             "submitted_time": submitted_time
         }
-        # latest = qblock_chain.latest_block()
-        # qblock_chain.add(create_block(message, latest.hash().encode('utf-8'), latest.timestamp, signature, publicKey))
         meta.update_one(
             {
                 "_id": meta_block["_id"]
@@ -68,6 +66,35 @@ def create_app(test_config=None):
         )
         cold.insert_one(block)
         return 'success'
+
+    @app.post('/hot')
+    def post_hot():
+        data = request.json
+        _id = data.get('_id').encode('utf-8')
+        height = data.get('height')
+        message = data.get('message').encode('utf-8')
+        message_hash = data.get('message_hash').encode('utf-8')
+        previous_hash = data.get('previous_hash').encode('utf-8')
+        previous_timestamp = data.get('previous_timestamp')
+        proof = data.get('proof')
+        signature = data.get('signature').encode('utf-8')
+        public_key = data.get('public_key').encode('utf-8')
+        timestamp = data.get('timestamp')
+        block_dict = {
+            "_id": _id,
+            "height": height,
+            "message": message,
+            "message_hash": message_hash,
+            "previous_hash": previous_hash,
+            "previous_timestamp": previous_timestamp,
+            "proof": proof,
+            "signature": signature,
+            "public_key": public_key,
+            "timestamp": timestamp
+        }
+        print(block_dict)
+        warm.insert_one(block_dict)
+        return 'waiting for verification'
 
     return app
 

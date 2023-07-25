@@ -1,5 +1,6 @@
 # Note: b85 in base64 library is implemented with IPv6 standard
 from base64 import b85encode, b85decode
+from falcon import falcon
 from math import ceil
 from qblock.const import *
 
@@ -50,3 +51,17 @@ def encode_signature(sigbytes):
 
 def decode_signature(sigbytes):
     return b85decode(sigbytes)
+
+def block_to_dict(block):
+    return {
+        "_id": block.hash(),
+        "height": block.height,
+        "message": block.message,
+        "message_hash": block.messageHash,
+        "previous_hash": block.previousHash,
+        "previous_timestamp": block.previousTimestamp,
+        "proof": block.proof,
+        "public_key": encode_pubkey(block.publicKey.h),
+        "signature": encode_signature(block.signature),
+        "timestamp": block.timestamp
+    }

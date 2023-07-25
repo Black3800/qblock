@@ -8,7 +8,7 @@ from falcon import falcon
 from pymongo.errors import ConnectionFailure, NotPrimaryError, PyMongoError
 from time import sleep
 from qblock.block import Block, GenesisBlock
-from qblock.block_util import encode_secretkey, decode_secretkey, encode_pubkey, decode_pubkey
+from qblock.block_util import encode_secretkey, decode_secretkey, encode_pubkey, decode_pubkey, block_to_dict
 from qblock.chain import Chain
 from qblock.const import *
 
@@ -49,20 +49,6 @@ def work(msg, prevHash, prevTimestamp, sig, pk, height):
     print("\n\n\033[93mNonce found!! 🎉\033[0m")
     print(proof, "\t", b.hash(), "\n")
     return b
-
-def block_to_dict(block):
-    return {
-        "_id": block.hash(),
-        "height": block.height,
-        "message": block.message,
-        "message_hash": block.messageHash,
-        "previous_hash": block.previousHash,
-        "previous_timestamp": block.previousTimestamp,
-        "proof": block.proof,
-        "public_key": encode_pubkey(block.publicKey.h),
-        "signature": block.signature,
-        "timestamp": block.timestamp
-    }
 
 def mine_block(block, cold, hot, meta, is_mining, execute_flag):
     meta_block = meta.find().sort("height", pymongo.DESCENDING).limit(1)[0]
@@ -133,24 +119,38 @@ def main():
 
     listener_thread.start()
     execute_flag.set()
-    while True:
-        execute_flag.wait()
-        if green_flag.value:
-            if not is_mining.value:
-                if cold.count_documents({}) > 0:
-                    block = cold.find().sort("submitted_time", pymongo.ASCENDING).limit(1)[0]
-                    mining_thread = mp.Process(target=mine_block, args=[block, cold, hot, meta, is_mining, execute_flag], daemon=True)
-                    mining_target = block["signature"]
-                    is_mining.value = True
-                    execute_flag.clear()
-                    mining_thread.start()
-        else:
-            if is_mining.value:
-                block = hot.find().sort("timestamp", pymongo.ASCENDING).limit(1)[0]
-                if block["signature"] != mining_target:
-                    mining_thread.terminate()
-                green_flag.value = True
-                is_mining.value = False
+    stream_wait_time = 1
+    stream_max_retry = 30
+    for i in range(0, stream_max_retry):
+        try:
+            while True:
+                execute_flag.wait()
+                if green_flag.value:
+                    if not is_mining.value:
+                        if cold.count_documents({}) > 0:
+                            block = cold.find().sort("submitted_time", pymongo.ASCENDING).limit(1)[0]
+                            mining_thread = mp.Process(target=mine_block, args=[block, cold, hot, meta, is_mining, execute_flag], daemon=True)
+                            mining_target = block["signature"]
+                            is_mining.value = True
+                            execute_flag.clear()
+                            mining_thread.start()
+                else:
+                    if is_mining.value:
+                        block = hot.find().sort("timestamp", pymongo.ASCENDING).limit(1)[0]
+                        if block["signature"] != mining_target:
+                            mining_thread.terminate()
+                        green_flag.value = True
+                        is_mining.value = False
+
+        except NotPrimaryError:
+            print(f"NotPrimaryError: backoff for {stream_wait_time} seconds")
+            sleep(stream_wait_time)
+            if stream_wait_time < 90:
+                stream_wait_time *= 1.56828
+
+        except PyMongoError:
+            print("PyMongoError")
+            break
 
     print("\n\033[95m[Exit]\033[0m\n")
 
