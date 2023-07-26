@@ -34,7 +34,7 @@ shake.update(message)
 mhash = shake.read(32).hex().encode("utf-8")
 # phash = b'00000827b5ce5a2aaa843f4f3abb17439ddac693601e969d30b15c2e40f295c9'
 
-b = Block(message, prevHash=phash, prevTimestamp=1690296695.594468, height=2)
+b = Block(message, prevHash=phash, prevTimestamp=1690332161.5826924, height=2)
 b.publicKey = pk
 b.sign(sk)
 b.mine(QBLOCK_DIFFICULTY, True)

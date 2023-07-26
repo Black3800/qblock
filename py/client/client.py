@@ -21,6 +21,7 @@ def create_app(test_config=None):
     
     qblock = mongo_client.qblock
     cold = qblock.cold
+    hot = qblock.hot
     warm = qblock.warm
     meta = qblock.meta
 
@@ -36,9 +37,27 @@ def create_app(test_config=None):
     except OSError:
         pass
 
-    @app.get('/block')
-    def get_block_all():
-        return "all blocks"
+    @app.get('/hot')
+    def get_hot():
+        blocks = hot.find()
+        res = []
+        for b in blocks:
+            res.append({
+                "_id": b["_id"].decode("utf-8"),
+                "height": b["height"],
+                "message": b["message"].decode("utf-8"),
+                "message_hash": b["message_hash"].decode("utf-8"),
+                "previous_hash": b["previous_hash"].decode("utf-8"),
+                "previous_timestamp": b["previous_timestamp"],
+                "proof": b["proof"],
+                "signature": b["signature"].decode("utf-8"),
+                "public_key": b["public_key"].decode("utf-8"),
+                "timestamp": b["timestamp"]
+            })
+        print(res)
+        return {
+            "blocks": res
+        }
 
     @app.post('/cold')
     def post_cold():

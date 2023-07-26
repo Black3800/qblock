@@ -43,7 +43,9 @@ def initialize_qblock_db(mongo_instance):
         print(f"\033[95m[\033[0m{ 'Done' }\033[95m]\033[0m\n")
 
 def handle_warm_insert(block_dict, hot, warm, meta, qblock):
-    block = Block(block_dict["message"], prevHash=block_dict["previous_hash"], prevTimestamp=block_dict["previous_timestamp"], height=block_dict["height"])
+    meta_block = meta.find().sort("height", pymongo.DESCENDING).limit(1)[0]
+
+    block = Block(block_dict["message"], prevHash=block_dict["previous_hash"], prevTimestamp=block_dict["previous_timestamp"], height=meta_block["height"]+1)
     block.proof = block_dict["proof"]
     block.publicKey = falcon.PublicKey(h=decode_pubkey(block_dict["public_key"]), n=QBLOCK_N)
     block.signature = block_dict["signature"]
@@ -56,7 +58,6 @@ def handle_warm_insert(block_dict, hot, warm, meta, qblock):
         qblock.log.insert_one({"status": "incorrect proof"})
         return 'incorrect proof'
 
-    meta_block = meta.find().sort("height", pymongo.DESCENDING).limit(1)[0]
     meta.update_one(
         {
             "_id": meta_block["_id"]
