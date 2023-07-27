@@ -1,0 +1,18 @@
+.title {
+    width: 100%;
+    color: #3a0068;
+    z-index: 99;
+    background-color: #eeeeee;
+    height: 60px;
+    display: flex;
+    border-bottom: 3px solid #d0b0e9;
+}
+
+.title > span {
+    height: 60px;
+    line-height: 60px;
+    position: relative;
+    left: 60px;
+    font-weight: 700;
+    font-size: large;
+}

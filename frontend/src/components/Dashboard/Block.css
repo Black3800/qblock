@@ -1,0 +1,100 @@
+.block-container {
+    width: 100%;
+    height: 100%;
+    padding-top: 20px;
+    display: flex;
+    flex-flow: column nowrap;
+    justify-content: flex-start;
+    align-items: center;
+    overflow-x: hidden;
+    overflow-y: scroll;
+}
+
+.block {
+    width: 90%;
+    height: 80px;
+    min-height: 80px;
+    background-color: #eeeeee;
+    border: 1px solid #cccccc;
+    border-radius: 7px;
+    box-shadow: 0px 0px 8px rgba(128, 128, 128, 0.2);
+    margin-bottom: 15px;
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: flex-start;
+    align-items: center;
+    transition: background-color 0.2s;
+    cursor: pointer;
+}
+
+.block:hover {
+    background-color: #dddddd;
+}
+
+.block:active {
+    background-color: #80c7b2;
+}
+
+.block-refresh-container {
+    width: 100%;
+    height: 80px;
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+}
+
+.block-refresh {
+    width: 70%;
+    height: 50px;
+    background-color: #17b487;
+    color: white;
+    line-height: 50px;
+    text-align: center;
+    font-weight: 500;
+    transition: background-color 0.1s;
+    cursor: pointer;
+}
+
+.block-refresh:hover {
+    background-color: #179974;
+}
+
+.block-refresh-icon {
+    margin-left: 5px;
+}
+
+.block-height-container {
+    width: 100px;
+    min-width: 100px;
+    height: 100%;
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: center;
+    align-items: center;
+}
+
+.block-height {
+    width: 60px;
+    height: 60px;
+    line-height: 60px;
+    text-align: center;
+    background-color: #00684a;
+    color: #eeeeee;
+    font-weight: 500;
+    font-size: large;
+}
+
+.block-message {
+    width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.block-info-icon {
+    color: #bbbbbb;
+    width: 15px;
+    margin-right: 20px;
+}

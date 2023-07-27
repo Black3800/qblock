@@ -9,14 +9,9 @@ services:
     container_name: mongodb
     hostname: mongodb
     restart: always
-    # ports:
-    #   - "27017:27017"
     networks:
       - mongo-network
     entrypoint: ["/usr/bin/mongod","--bind_ip_all","--replSet","rs0"]
-    # environment:
-    #   MONGO_INITDB_ROOT_USERNAME: anakint
-    #   MONGO_INITDB_ROOT_PASSWORD: qblock66
 
   mongosetup:
     build: ./mongosetup

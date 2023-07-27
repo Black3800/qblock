@@ -3,12 +3,19 @@ import time
 import os
 import pymongo
 
+from Crypto.Hash import SHAKE256
+from falcon import falcon
+from qblock.block_util import encode_pubkey, encode_secretkey, encode_signature, decode_secretkey
+from qblock.const import QBLOCK_N
 from flask import Flask, request
+from flask_cors import CORS, cross_origin
 from pymongo.errors import ConnectionFailure
 
 def create_app(test_config=None):
     # create and configure the app
     app = Flask(__name__, instance_relative_config=True)
+    cors = CORS(app)
+    app.config['CORS_HEADERS'] = 'Content-Type'
     print(f"\033[95m[\033[4m\x1b[1;32;40mStarting QBlock client...\x1b[0m\033[95m]\033[0m")
     mongo_client = pymongo.MongoClient('mongodb://mongodb:27017/?directConnection=true')
     mongo_down = True
@@ -37,7 +44,34 @@ def create_app(test_config=None):
     except OSError:
         pass
 
+    @app.get('/key')
+    @cross_origin()
+    def get_key():
+        sk = falcon.SecretKey(QBLOCK_N)
+        pk = falcon.PublicKey(sk)
+        return {
+            'secret_key': encode_secretkey(sk).decode('utf-8'),
+            'public_key': encode_pubkey(pk.h).decode('utf-8')
+        }
+
+    @app.post('/sign')
+    @cross_origin()
+    def post_sign():
+        data = request.json
+        message = data.get('message').encode('utf-8')
+        previous_hash = meta.find().sort("height", pymongo.DESCENDING).limit(1)[0]['latest_hash']
+        secret_key = data.get('secret_key').encode('utf-8')
+        shake = SHAKE256.new()
+        shake.update(message)
+        message_hash = shake.read(32).hex().enocde('utf-8')
+        sk = falcon.SecretKey(QBLOCK_N, polys=decode_secretkey(secret_key))
+        signature = encode_signature(sk.sign(previous_hash + message_hash))
+        return {
+            "signature": signature
+        }
+
     @app.get('/hot')
+    @cross_origin()
     def get_hot():
         blocks = hot.find()
         res = []
@@ -60,6 +94,7 @@ def create_app(test_config=None):
         }
 
     @app.post('/cold')
+    @cross_origin()
     def post_cold():
         data = request.json
         message = data.get('message').encode('utf-8')
@@ -86,7 +121,43 @@ def create_app(test_config=None):
         cold.insert_one(block)
         return 'success'
 
+    @app.post('/cold_with_sk')
+    @cross_origin()
+    def post_cold_with_sk():
+        data = request.json
+        message = data.get('message').encode('utf-8')
+        previous_hash = meta.find().sort("height", pymongo.DESCENDING).limit(1)[0]['latest_hash']
+        secret_key = data.get('secret_key').encode('utf-8')
+        shake = SHAKE256.new()
+        shake.update(message)
+        message_hash = shake.read(32).hex().encode('utf-8')
+        sk = falcon.SecretKey(QBLOCK_N, polys=decode_secretkey(secret_key))
+        pk = falcon.PublicKey(sk)
+        pk = encode_pubkey(pk.h)
+        signature = encode_signature(sk.sign(previous_hash + message_hash))
+        submitted_time = time.time()
+        meta_block = meta.find().sort("height", pymongo.DESCENDING).limit(1)[0]
+        block = {
+            "message": message,
+            "signature": signature,
+            "public_key": pk,
+            "submitted_time": submitted_time
+        }
+        meta.update_one(
+            {
+                "_id": meta_block["_id"]
+            },
+            {
+                "$inc": {
+                    "cold_size": 1
+                }
+            }
+        )
+        cold.insert_one(block)
+        return 'success'
+
     @app.post('/hot')
+    @cross_origin()
     def post_hot():
         data = request.json
         _id = data.get('_id').encode('utf-8')
